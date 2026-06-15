@@ -1,0 +1,21 @@
+# E2E stack: the patched Actual image behind an nginx that plays Traefik's role
+# — it serves a stub at /importer (standing in for the importer container) and
+# proxies everything else to actual-server. This lets the test prove the Actual
+# side of the redirect (button + reloadDocument + SW denylist + /importer route)
+# without standing up the real importer (ollama/searxng/redis), which is the
+# importer's own concern.
+services:
+  actual-budget:
+    image: ${ACTUAL_IMAGE:-actual-budget:e2e}
+    expose:
+      - "5006"
+    # No volume: every run bootstraps a fresh server so the test is deterministic.
+
+  proxy:
+    image: nginx:1.27-alpine
+    depends_on:
+      - actual-budget
+    ports:
+      - "8080:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro

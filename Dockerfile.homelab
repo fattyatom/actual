@@ -1,0 +1,42 @@
+# Homelab image: build @actual-app/web from THIS branch's source (upstream +
+# the Importer button + /importer service-worker denylist) and layer it onto the
+# official actual-server image. Built/published as ghcr.io/fattyatom/actual by
+# .github/workflows/homelab-image.yml.
+#
+# Named Dockerfile.homelab so it never collides with upstream's root Dockerfile.
+# The repo's .dockerignore already excludes .git / node_modules, so `COPY .`
+# sends only source. Debian (glibc), not alpine: the build is orchestrated by
+# `lage`, whose native `glob-hasher` ships no musl prebuild.
+#
+# The actual-server base tag MUST match the upstream version this branch is based
+# on — bump it together with a rebase onto a new release.
+FROM node:24-bookworm AS web-builder
+
+# build-essential + python3: native npm deps (better-sqlite3, bcrypt, sharp, …).
+RUN apt-get update && apt-get install -y --no-install-recommends \
+      build-essential python3 \
+    && rm -rf /var/lib/apt/lists/*
+
+# Enable corepack so the repo's `packageManager` field (yarn@4.x) is honoured.
+RUN corepack enable
+
+WORKDIR /src
+COPY . /src
+
+RUN yarn install
+
+# Canonical browser build (the command upstream's release uses, minus languages).
+# Builds loot-core + the kcab worker via the vite plugin; output lands in
+# packages/desktop-client/build/.
+RUN yarn build:browser --skip-translations
+
+
+# ── Stage 2: assemble the final production image ──────────────────────────────
+FROM actualbudget/actual-server:26.6.0
+
+# Replace the official web assets with our patched build.
+RUN rm -rf /app/node_modules/@actual-app/web/build
+COPY --from=web-builder /src/packages/desktop-client/build \
+     /app/node_modules/@actual-app/web/build
+
+CMD ["node", "app.js"]

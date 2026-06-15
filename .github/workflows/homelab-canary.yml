@@ -1,0 +1,57 @@
+# Weekly canary for the homelab-importer branch.
+#
+#   1. Does the branch still build + pass the E2E? (catches upstream/base drift
+#      even when nothing here changed.)
+#   2. Has upstream released a version newer than this branch's base? (a prompt
+#      to rebase homelab-importer onto the new tag + bump the base image.)
+#
+# On a scheduled failure-or-behind it opens / comments on a single tracking issue.
+name: homelab-canary
+
+on:
+  schedule:
+    - cron: "17 6 * * 1" # Mondays 06:17 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  canary:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+      - uses: docker/setup-buildx-action@v3
+      - name: Resolve upstream latest vs branch base
+        id: ver
+        run: |
+          latest=$(gh api repos/actualbudget/actual/releases/latest --jq .tag_name)
+          base=v$(grep -oE 'actualbudget/actual-server:[0-9]+\.[0-9]+\.[0-9]+' Dockerfile.homelab | head -1 | cut -d: -f2)
+          echo "latest=$latest" >> "$GITHUB_OUTPUT"
+          echo "base=$base"     >> "$GITHUB_OUTPUT"
+          echo "behind=$([ "$latest" != "$base" ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
+          echo "upstream latest: $latest | branch base: $base"
+      - name: Verify + build + E2E
+        run: |
+          bash tests/homelab/verify-importer.sh
+          node tests/homelab/denylist.test.mjs
+          bash tests/homelab/e2e/run.sh
+      - name: Open/update tracking issue (failure or behind upstream)
+        if: always() && github.event_name == 'schedule' && (failure() || steps.ver.outputs.behind == 'true')
+        run: |
+          title="homelab-importer: needs attention"
+          if [ "${{ job.status }}" = "failure" ]; then
+            reason="the weekly build/E2E **failed** — the branch may need a fix"
+          else
+            reason="upstream released **${{ steps.ver.outputs.latest }}** (branch base is **${{ steps.ver.outputs.base }}**) — rebase \`homelab-importer\` onto it and bump the actual-server base tag in Dockerfile.homelab"
+          fi
+          body=$(printf 'Weekly canary on %s UTC: %s.\n\nRun: %s/%s/actions/runs/%s' \
+            "$(date -u +%FT%TZ)" "$reason" "${{ github.server_url }}" "${{ github.repository }}" "${{ github.run_id }}")
+          existing=$(gh issue list --state open --search "$title in:title" --json number --jq '.[0].number // empty')
+          if [ -n "$existing" ]; then gh issue comment "$existing" --body "$body"; else gh issue create --title "$title" --body "$body"; fi

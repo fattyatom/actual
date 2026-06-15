@@ -1,0 +1,13 @@
+{
+  "name": "actual-budget-importer-e2e",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Browser E2E for the patched Actual Budget image: Importer button + /importer redirection.",
+  "scripts": {
+    "test": "playwright test"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.50.1"
+  }
+}
