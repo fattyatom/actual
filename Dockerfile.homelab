@@ -1,18 +1,23 @@
-# Homelab image: build @actual-app/web from THIS branch's source (upstream +
-# the Importer button + /importer service-worker denylist) and layer it onto the
-# official actual-server image. Built/published as ghcr.io/fattyatom/actual by
-# .github/workflows/homelab-image.yml.
+# Homelab image: build @actual-app/web from this fork's homelab-importer branch
+# (upstream + the Importer button + /importer service-worker denylist) and layer
+# it onto the official actual-server image. Built/published as
+# ghcr.io/fattyatom/actual by .github/workflows/homelab-image.yml.
 #
 # Named Dockerfile.homelab so it never collides with upstream's root Dockerfile.
-# The repo's .dockerignore already excludes .git / node_modules, so `COPY .`
-# sends only source. Debian (glibc), not alpine: the build is orchestrated by
-# `lage`, whose native `glob-hasher` ships no musl prebuild.
+# It git-clones the branch rather than COPYing the build context, because the
+# repo's .dockerignore excludes .git and `lage` (the browser build orchestrator)
+# needs a git repo (`git ls-tree HEAD`). Debian (glibc), not alpine: lage's native
+# `glob-hasher` ships no musl prebuild.
 #
 # The actual-server base tag MUST match the upstream version this branch is based
 # on — bump it together with a rebase onto a new release.
 FROM node:24-bookworm AS web-builder
 
+ARG AB_REPO=https://github.com/fattyatom/actual.git
+ARG AB_REF=homelab-importer
+
 # build-essential + python3: native npm deps (better-sqlite3, bcrypt, sharp, …).
+# git ships in node:24-bookworm.
 RUN apt-get update && apt-get install -y --no-install-recommends \
       build-essential python3 \
     && rm -rf /var/lib/apt/lists/*
@@ -20,8 +25,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Enable corepack so the repo's `packageManager` field (yarn@4.x) is honoured.
 RUN corepack enable
 
+# Clone the branch (keeps .git, which lage needs). Shallow — only the tip is built.
+RUN git clone --depth 1 --branch ${AB_REF} ${AB_REPO} /src
+
 WORKDIR /src
-COPY . /src
 
 RUN yarn install
 
