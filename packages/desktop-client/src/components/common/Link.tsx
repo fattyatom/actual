@@ -34,6 +34,7 @@ type InternalLinkProps = {
   children?: ReactNode;
   isDisabled?: boolean;
   isExactPathMatch?: boolean;
+  reloadDocument?: boolean;
 };
 
 const externalLinkColors = {
@@ -123,6 +124,7 @@ const InternalLink = ({
   children,
   isDisabled,
   isExactPathMatch = false,
+  reloadDocument = false,
 }: InternalLinkProps) => {
   const path = to ?? '';
   const match = useMatch({ path, end: isExactPathMatch });
@@ -130,6 +132,7 @@ const InternalLink = ({
   return (
     <NavLink
       to={path}
+      reloadDocument={reloadDocument}
       className={css([styles.smallText, style, match ? activeStyle : null])}
       onClick={e => {
         if (isDisabled) {

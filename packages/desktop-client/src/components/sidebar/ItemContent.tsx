@@ -14,6 +14,7 @@ type ItemContentProps = {
   activeStyle: CSSProperties;
   children: ReactNode;
   forceActive?: boolean;
+  reloadDocument?: boolean;
 };
 
 export function ItemContent({
@@ -23,6 +24,7 @@ export function ItemContent({
   activeStyle,
   forceActive,
   children,
+  reloadDocument,
 }: ItemContentProps) {
   return onClick ? (
     <Button
@@ -37,7 +39,7 @@ export function ItemContent({
       {children}
     </Button>
   ) : (
-    <Link variant="internal" to={to} style={style} activeStyle={activeStyle}>
+    <Link variant="internal" to={to} style={style} activeStyle={activeStyle} reloadDocument={reloadDocument}>
       {children}
     </Link>
   );
