@@ -7,6 +7,7 @@ import { animated, config, useSpring } from 'react-spring';
 import { useResponsive } from '@actual-app/components/hooks/useResponsive';
 import {
   SvgAdd,
+  SvgCloudUpload,
   SvgCog,
   SvgCreditCard,
   SvgPiggyBank,
@@ -122,6 +123,13 @@ export function MobileNavTabs() {
       path: '/schedules',
       style: navTabStyle,
       Icon: SvgCalendar3,
+    },
+    {
+      name: t('Importer'),
+      path: '/importer',
+      style: navTabStyle,
+      Icon: SvgCloudUpload,
+      reloadDocument: true,
     },
     {
       name: t('Payees'),
@@ -269,12 +277,21 @@ type NavTabProps = {
   Icon: ComponentType<NavTabIconProps>;
   style?: CSSProperties;
   onClick: ComponentProps<typeof NavLink>['onClick'];
+  reloadDocument?: boolean;
 };
 
-function NavTab({ Icon: TabIcon, name, path, style, onClick }: NavTabProps) {
+function NavTab({
+  Icon: TabIcon,
+  name,
+  path,
+  style,
+  onClick,
+  reloadDocument,
+}: NavTabProps) {
   return (
     <NavLink
       to={path}
+      reloadDocument={reloadDocument}
       style={({ isActive }) => ({
         ...styles.noTapHighlight,
         alignItems: 'center',
